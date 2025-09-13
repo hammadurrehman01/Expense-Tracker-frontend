@@ -1,41 +1,26 @@
 "use client";
 
+import { ErrorMessage, Field, Form, Formik } from "formik";
 import { useState } from "react";
-import { Formik, Form, Field, ErrorMessage } from "formik";
-import * as Yup from "yup";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  CardContent
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Eye, EyeOff, DollarSign, Shield, Lock } from "lucide-react";
-import { ThemeToggle } from "../components/theme-toggle";
 import api from "@/lib/axios";
-import toast from "react-hot-toast";
+import { setUser } from "@/slices/authSlice";
 import { AxiosError } from "axios";
+import { DollarSign, Eye, EyeOff, Lock, Shield } from "lucide-react";
+import { useCookies } from "next-client-cookies";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-const signupSchema = Yup.object().shape({
-  name: Yup.string()
-    .min(2, "Name must be at least 2 characters")
-    .required("Name is required"),
-  email: Yup.string()
-    .email("Invalid email address")
-    .required("Email is required"),
-  password: Yup.string()
-    .min(8, "Password must be at least 8 characters")
-    .matches(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .matches(/[a-z]/, "Password must contain at least one lowercase letter")
-    .matches(/\d/, "Password must contain at least one number")
-    .required("Password is required"),
-});
+import toast from "react-hot-toast";
+import { useDispatch } from "react-redux";
+import { ThemeToggle } from "../components/theme-toggle";
+import { signupSchema } from "@/schemas/signup";
 
 interface signUp {
   name: string;
@@ -45,6 +30,8 @@ interface signUp {
 
 export default function Signup() {
   const router = useRouter();
+  const dispatch = useDispatch();
+  const cookies = useCookies();
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,11 +42,20 @@ export default function Signup() {
       const response = await api.post("/auth/signup", values);
       if (response.data.success) {
         toast.success("Signup successful!");
-        router.push("/dashboard")
+        router.push("/dashboard");
+
+        const data = {
+          user: response.data.user,
+          access_token: response.data.access_token,
+        };
+
+        dispatch(setUser(data));
+        cookies.set("customer_loggedin", "true");
+        cookies.set("email_verification_status", "false");
       }
     } catch (error) {
       const err = error as AxiosError<{ message?: string }>;
-      toast.error(err.response?.data?.message);
+      toast.error(err.response?.data?.message || "Something went wrong");
       console.error("Signup error:", err.response?.data?.message);
     } finally {
       setIsLoading(false);
@@ -91,12 +87,6 @@ export default function Signup() {
         </div>
 
         <Card className="border-0 shadow-xl backdrop-blur-sm bg-card/95">
-          <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl text-center">Sign Up</CardTitle>
-            <CardDescription className="text-center">
-              Join thousands managing their money smarter
-            </CardDescription>
-          </CardHeader>
           <CardContent className="space-y-4">
             {/* Google Signup Button */}
             <Button
