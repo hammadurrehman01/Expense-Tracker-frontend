@@ -14,9 +14,7 @@ import { PersistGate } from "redux-persist/integration/react";
 import ReduxProvider from "@/providers/ReduxProvider";
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
-  generator: "v0.app",
+  title: "Expense Tracker",
 };
 
 const geist = Geist({
