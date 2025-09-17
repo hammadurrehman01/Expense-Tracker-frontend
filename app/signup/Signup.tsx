@@ -3,10 +3,7 @@
 import { ErrorMessage, Field, Form, Formik } from "formik";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -41,8 +38,8 @@ export default function Signup() {
     try {
       const response = await api.post("/auth/signup", values);
       if (response.data.success) {
-        toast.success("Signup successful!");
-        router.push("/dashboard");
+        toast.success(response.data.message);
+        router.push("/verify-email");
 
         const data = {
           user: response.data.user,

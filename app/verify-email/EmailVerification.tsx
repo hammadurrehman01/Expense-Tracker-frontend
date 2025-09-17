@@ -1,24 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Mail, CheckCircle, Clock, RefreshCw } from "lucide-react";
-import { ThemeToggle } from "../components/theme-toggle";
+import { Card, CardContent } from "@/components/ui/card";
 import api from "@/lib/axios";
-import { useSelector } from "react-redux";
+import { CheckCircle, Mail, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
+import { ThemeToggle } from "../components/theme-toggle";
+import { useCookies } from "next-client-cookies";
 
 export default function EmailVerification() {
   const user = useSelector((state: any) => state?.auth?.user);
-  console.log("user",user)
+  const searchParams = useSearchParams().get("token");
+  const router = useRouter();
+  const cookies = useCookies();
 
   const [isResending, setIsResending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -39,6 +37,17 @@ export default function EmailVerification() {
       setIsResending(false);
     }
   };
+
+  const checkEmailVerification = () => {
+    if (searchParams === user.user.confirmation_token) {
+      router.push("/user/dashboard");
+      cookies.set("email_verification_status", "true");
+    }
+  };
+
+  useEffect(() => {
+    checkEmailVerification();
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
@@ -63,9 +72,9 @@ export default function EmailVerification() {
               <p className="text-md text-muted-foreground leading-relaxed text-center">
                 Hey{" "}
                 <span className="font-semibold text-foreground">
-                  Hammad Ur Rehman
+                  {user.user.name},{" "}
                 </span>
-                , to start using{" "}
+                to start using{" "}
                 <span className="font-semibold text-primary">
                   Expense Tracker
                 </span>{" "}
