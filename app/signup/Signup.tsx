@@ -141,7 +141,7 @@ export default function Signup() {
                       type="text"
                       placeholder="Enter your full name"
                       className={
-                        errors.name && touched.name ? "border-destructive" : ""
+                        `border border-green-700 ${errors.name && touched.name ? "border-destructive" : ""}`
                       }
                     />
                     <ErrorMessage
