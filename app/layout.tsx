@@ -1,17 +1,16 @@
-import type React from "react";
 import type { Metadata } from "next";
+import type React from "react";
 // import { GeistSans } from "geist/font/sans"
 import { Geist } from "next/font/google";
 // import { Analytics } from "@vercel/analytics/next"
-import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Suspense } from "react";
-import { FinanceBackground } from "./components/finance-background";
-import { Toaster } from "react-hot-toast";
-import { Provider } from "react-redux";
-import { persistor, store } from "@/store";
-import { PersistGate } from "redux-persist/integration/react";
 import ReduxProvider from "@/providers/ReduxProvider";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+import { Suspense } from "react";
+import { Toaster } from "react-hot-toast";
+import { FinanceBackground } from "./components/finance-background";
+import "./globals.css";
+
 
 export const metadata: Metadata = {
   title: "Expense Tracker",
@@ -33,6 +32,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body>
+         <GoogleOAuthProvider clientId="620727407796-ubctgh75hsd28q4lgkmepmmjvubjqfqf.apps.googleusercontent.com">
         <ReduxProvider>
           <Suspense fallback={null}>
             <ThemeProvider
@@ -48,6 +48,7 @@ export default function RootLayout({
             </ThemeProvider>
           </Suspense>
         </ReduxProvider>
+        </GoogleOAuthProvider>
         {/* <Analytics /> */}
       </body>
     </html>
