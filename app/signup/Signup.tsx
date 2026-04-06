@@ -65,17 +65,31 @@ export default function Signup() {
 
 
 
-// const googleLogin = useGoogleLogin({
-//   onSuccess: async (tokenResponse) => {
-//     const res = await axios.post("http://localhost:8000/api/auth/google", {
-//       token: tokenResponse.access_token,
-//     });
+const handleGoogleSignin = async (credentialResponse: any) => {
+  const res = await axios.post(
+    "http://localhost:8000/api/auth/google",
+    {
+      token: credentialResponse.credential, // ✅ ID TOKEN
+    }
+  );
 
-//     console.log(res.data);
-//   },
-//   onError: () => console.log("Login Failed"),
-// });
+  const data = {
+    user: res.data.user,
+    access_token: res.data.token,
+  };
 
+  dispatch(setUser(data));
+  cookies.set("customer_loggedin", "true");
+  cookies.set("email_verification_status", "true");
+
+  if(res.status === 200) {
+    toast.success(res.data.message);
+    router.push("/user/dashboard");
+  } else {
+    toast.error(res.data.message);
+  }
+}
+  
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
       {/* Theme Toggle Button */}
@@ -97,27 +111,9 @@ export default function Signup() {
 
         <Card className="border-0 shadow-xl backdrop-blur-sm bg-card/95">
           <CardContent className="space-y-4">
-            {/* Google Signup Button */}
-          {/* <Button
-  type="button"
-  variant="outline"
-  className="w-full h-11 text-sm font-medium bg-transparent"
-  onClick={() => googleLogin()}
->
-  {/* SVG here */}
-  Continue with Google
-{/* </Button> */} 
+       
 <GoogleLogin
-  onSuccess={async (credentialResponse) => {
-    const res = await axios.post(
-      "http://localhost:8000/api/auth/google",
-      {
-        token: credentialResponse.credential, // ✅ ID TOKEN
-      }
-    );
-
-    console.log(res.data);
-  }}
+  onSuccess={handleGoogleSignin}
   onError={() => console.log("Login Failed")}
 />
            
