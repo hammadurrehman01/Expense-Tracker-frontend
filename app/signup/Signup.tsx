@@ -65,16 +65,16 @@ export default function Signup() {
 
 
 
-const googleLogin = useGoogleLogin({
-  onSuccess: async (tokenResponse) => {
-    const res = await axios.post("http://localhost:8000/api/auth/google/signup", {
-      token: tokenResponse.access_token,
-    });
+// const googleLogin = useGoogleLogin({
+//   onSuccess: async (tokenResponse) => {
+//     const res = await axios.post("http://localhost:8000/api/auth/google", {
+//       token: tokenResponse.access_token,
+//     });
 
-    console.log(res.data);
-  },
-  onError: () => console.log("Login Failed"),
-});
+//     console.log(res.data);
+//   },
+//   onError: () => console.log("Login Failed"),
+// });
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
@@ -98,7 +98,7 @@ const googleLogin = useGoogleLogin({
         <Card className="border-0 shadow-xl backdrop-blur-sm bg-card/95">
           <CardContent className="space-y-4">
             {/* Google Signup Button */}
-          <Button
+          {/* <Button
   type="button"
   variant="outline"
   className="w-full h-11 text-sm font-medium bg-transparent"
@@ -106,7 +106,20 @@ const googleLogin = useGoogleLogin({
 >
   {/* SVG here */}
   Continue with Google
-</Button>
+{/* </Button> */} 
+<GoogleLogin
+  onSuccess={async (credentialResponse) => {
+    const res = await axios.post(
+      "http://localhost:8000/api/auth/google",
+      {
+        token: credentialResponse.credential, // ✅ ID TOKEN
+      }
+    );
+
+    console.log(res.data);
+  }}
+  onError={() => console.log("Login Failed")}
+/>
            
 
             <div className="relative">
