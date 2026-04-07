@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
 import { EditExpenseDialog } from "@/components/edit-expense-dialog"
+import { useSelector } from "react-redux"
 
 interface Expense {
   id: string
@@ -32,6 +33,8 @@ const categoryColors: Record<string, string> = {
 }
 
 export function ExpenseList({ expenses, onUpdateExpense, onDeleteExpense }: ExpenseListProps) {
+  const user = useSelector((state: any) => state?.auth?.user)
+  
   if (expenses.length === 0) {
     return (
       <Card>
@@ -68,7 +71,7 @@ export function ExpenseList({ expenses, onUpdateExpense, onDeleteExpense }: Expe
               <div className="flex items-center gap-4">
                 <Badge className={categoryColors[expense.category] || categoryColors.Other}>{expense.category}</Badge>
                 <div className="text-right">
-                  <p className="font-semibold text-foreground">${expense.amount.toFixed(2)}</p>
+                  <p className="font-semibold text-foreground">{user?.user?.currencySymbol}{'  '}{expense.amount.toFixed(2)}</p>
                   <p className="text-xs text-muted-foreground">{expense.date.toLocaleDateString()}</p>
                 </div>
               </div>

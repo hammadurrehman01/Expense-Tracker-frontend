@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { AdvancedExpenseFilters } from "@/components/advanced-expense-filters"
@@ -22,6 +22,8 @@ export default function DashboardPage() {
   const userId = user?.user?.id || user?.user?._id || user?.id || user?._id
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
+  const [isFiltering, setIsFiltering] = useState(false)
+  const filterRequestIdRef = useRef(0)
   const [filters, setFilters] = useState({
     searchTerm: "",
     categories: [] as string[],
@@ -63,10 +65,78 @@ export default function DashboardPage() {
     return filtered
   }
 
+  const mapApiExpenses = (expenseList: any[]) => {
+    return expenseList.map((exp: any, index: number) => ({
+      id: String(exp?.id || exp?._id || `${Date.now()}-${index}`),
+      description: exp?.title || exp?.description || "",
+      amount: Number(exp?.amount) || 0,
+      category: exp?.category || "Other",
+      date: new Date(exp?.date || exp?.createdAt || new Date()),
+      paymentMethod: exp?.note || exp?.paymentMethod || "Unknown",
+    })) as Expense[]
+  }
+
+  const hasActiveFilters = (f: typeof filters) => {
+    return (
+      !!f.searchTerm ||
+      f.categories.length > 0 ||
+      f.paymentMethods.length > 0 ||
+      f.minAmount !== 0 ||
+      f.maxAmount !== 1000 ||
+      !!f.startDate ||
+      !!f.endDate
+    )
+  }
+
+  const fetchFilteredExpenses = async (newFilters: typeof filters, base?: Expense[]) => {
+    if (!userId) return
+
+    // If nothing is active, show whatever list we already have.
+    if (!hasActiveFilters(newFilters)) {
+      setFilteredExpenses(base ?? expenses)
+      return
+    }
+
+    filterRequestIdRef.current += 1
+    const requestId = filterRequestIdRef.current
+
+    setIsFiltering(true)
+    try {
+      const params: Record<string, any> = { userId }
+
+      if (newFilters.searchTerm) params.title = newFilters.searchTerm
+      if (newFilters.categories.length > 0) params.category = newFilters.categories.join(",")
+
+      if (newFilters.startDate || newFilters.endDate) {
+        params.date =
+          newFilters.startDate && newFilters.endDate
+            ? `${newFilters.startDate},${newFilters.endDate}`
+            : newFilters.startDate || newFilters.endDate
+      }
+
+      if (newFilters.paymentMethods.length > 0) params.note = newFilters.paymentMethods.join(",")
+      // `id` isn't applicable for the list filter UI, so we omit it.
+
+      const response = await api.get("/expense/filter", { params })
+      const payload = response?.data?.data || response?.data?.expenses || response?.data || []
+      const expenseList = Array.isArray(payload) ? payload : []
+      const mappedExpenses = mapApiExpenses(expenseList)
+
+      const next = applyFilters(newFilters, mappedExpenses)
+      if (requestId === filterRequestIdRef.current) setFilteredExpenses(next)
+    } catch (error) {
+      console.error("Failed to filter expenses:", error)
+      // Fallback: keep UI usable even if backend filter fails.
+      const next = applyFilters(newFilters, base ?? expenses)
+      if (requestId === filterRequestIdRef.current) setFilteredExpenses(next)
+    } finally {
+      if (requestId === filterRequestIdRef.current) setIsFiltering(false)
+    }
+  }
+
   const handleFilterChange = (newFilters: typeof filters) => {
     setFilters(newFilters)
-    const filtered = applyFilters(newFilters, expenses)
-    setFilteredExpenses(filtered)
+    fetchFilteredExpenses(newFilters)
   }
 
   useEffect(() => {
@@ -80,17 +150,10 @@ export default function DashboardPage() {
 
         const payload = response?.data?.data || response?.data?.expenses || response?.data || []
         const expenseList = Array.isArray(payload) ? payload : []
-        const mappedExpenses: Expense[] = expenseList.map((exp: any) => ({
-          id: String(exp.id || exp._id || Date.now()),
-          description: exp.description || "",
-          amount: Number(exp.amount) || 0,
-          category: exp.category || "Other",
-          date: new Date(exp.date || exp.createdAt || new Date()),
-          paymentMethod: exp.paymentMethod || "Unknown",
-        }))
+        const mappedExpenses = mapApiExpenses(expenseList)
 
         setExpenses(mappedExpenses)
-        setFilteredExpenses(applyFilters(filters, mappedExpenses))
+        fetchFilteredExpenses(filters, mappedExpenses)
       } catch (error) {
         console.error("Failed to fetch expenses:", error)
         setExpenses([])
@@ -101,10 +164,6 @@ export default function DashboardPage() {
     fetchExpenses()
   }, [userId])
 
-  useEffect(() => {
-    setFilteredExpenses(applyFilters(filters, expenses))
-  }, [expenses, filters])
-
   const handleAddExpense = (newExpense: Omit<Expense, "id">) => {
     const expense: Expense = {
       ...newExpense,
@@ -112,19 +171,19 @@ export default function DashboardPage() {
     }
     const updatedExpenses = [expense, ...expenses]
     setExpenses(updatedExpenses)
-    setFilteredExpenses(applyFilters(filters, updatedExpenses))
+    fetchFilteredExpenses(filters, updatedExpenses)
   }
 
   const handleUpdateExpense = (updatedExpense: Expense) => {
     const updatedExpenses = expenses.map((exp) => (exp.id === updatedExpense.id ? updatedExpense : exp))
     setExpenses(updatedExpenses)
-    setFilteredExpenses(applyFilters(filters, updatedExpenses))
+    fetchFilteredExpenses(filters, updatedExpenses)
   }
 
   const handleDeleteExpense = (id: string) => {
     const updatedExpenses = expenses.filter((exp) => exp.id !== id)
     setExpenses(updatedExpenses)
-    setFilteredExpenses(applyFilters(filters, updatedExpenses))
+    fetchFilteredExpenses(filters, updatedExpenses)
   }
 
   const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0)
@@ -140,7 +199,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-primary">{user?.user?.currencySymbol}{'  '}{totalExpenses.toFixed(2)}</div>
-            <p className="text-sm text-muted-foreground mt-2">{filteredExpenses.length} transactions</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {isFiltering ? "Filtering..." : `${filteredExpenses.length} transactions`}
+            </p>
           </CardContent>
         </Card>
 
