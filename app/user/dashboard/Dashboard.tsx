@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { AdvancedExpenseFilters } from "@/components/advanced-expense-filters"
 import { ExpenseList } from "@/components/expense-list"
+import api from "@/lib/axios"
+import { useSelector } from "react-redux"
 
 interface Expense {
   id: string
@@ -15,77 +17,11 @@ interface Expense {
   paymentMethod: string
 }
 
-// Mock expense data
-const mockExpenses: Expense[] = [
-  {
-    id: "1",
-    description: "Grocery Shopping",
-    amount: 125.5,
-    category: "Food",
-    date: new Date("2025-10-25"),
-    paymentMethod: "Credit Card",
-  },
-  {
-    id: "2",
-    description: "Gas",
-    amount: 45.0,
-    category: "Transportation",
-    date: new Date("2025-10-24"),
-    paymentMethod: "Debit Card",
-  },
-  {
-    id: "3",
-    description: "Netflix Subscription",
-    amount: 15.99,
-    category: "Entertainment",
-    date: new Date("2025-10-20"),
-    paymentMethod: "Credit Card",
-  },
-  {
-    id: "4",
-    description: "Restaurant Dinner",
-    amount: 85.3,
-    category: "Food",
-    date: new Date("2025-10-18"),
-    paymentMethod: "Credit Card",
-  },
-  {
-    id: "5",
-    description: "Gym Membership",
-    amount: 50.0,
-    category: "Health",
-    date: new Date("2025-10-15"),
-    paymentMethod: "Bank Transfer",
-  },
-  {
-    id: "6",
-    description: "Book Purchase",
-    amount: 24.99,
-    category: "Education",
-    date: new Date("2025-10-12"),
-    paymentMethod: "Credit Card",
-  },
-  {
-    id: "7",
-    description: "Electricity Bill",
-    amount: 120.0,
-    category: "Utilities",
-    date: new Date("2025-09-28"),
-    paymentMethod: "Bank Transfer",
-  },
-  {
-    id: "8",
-    description: "Movie Tickets",
-    amount: 30.0,
-    category: "Entertainment",
-    date: new Date("2025-09-15"),
-    paymentMethod: "Credit Card",
-  },
-]
-
 export default function DashboardPage() {
-  const [expenses, setExpenses] = useState<Expense[]>(mockExpenses)
-  const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>(mockExpenses)
+  const user = useSelector((state: any) => state?.auth?.user)
+  const userId = user?.user?.id || user?.user?._id || user?.id || user?._id
+  const [expenses, setExpenses] = useState<Expense[]>([])
+  const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
   const [filters, setFilters] = useState({
     searchTerm: "",
     categories: [] as string[],
@@ -96,30 +32,23 @@ export default function DashboardPage() {
     endDate: "",
   })
 
-  const handleFilterChange = (newFilters: typeof filters) => {
-    setFilters(newFilters)
+  const applyFilters = (newFilters: typeof filters, baseExpenses: Expense[]) => {
+    let filtered = baseExpenses
 
-    let filtered = expenses
-
-    // Filter by search term
     if (newFilters.searchTerm) {
       filtered = filtered.filter((exp) => exp.description.toLowerCase().includes(newFilters.searchTerm.toLowerCase()))
     }
 
-    // Filter by categories
     if (newFilters.categories.length > 0) {
       filtered = filtered.filter((exp) => newFilters.categories.includes(exp.category))
     }
 
-    // Filter by payment methods
     if (newFilters.paymentMethods.length > 0) {
       filtered = filtered.filter((exp) => newFilters.paymentMethods.includes(exp.paymentMethod))
     }
 
-    // Filter by amount range
     filtered = filtered.filter((exp) => exp.amount >= newFilters.minAmount && exp.amount <= newFilters.maxAmount)
 
-    // Filter by date range
     if (newFilters.startDate) {
       const startDate = new Date(newFilters.startDate)
       filtered = filtered.filter((exp) => exp.date >= startDate)
@@ -131,8 +60,50 @@ export default function DashboardPage() {
       filtered = filtered.filter((exp) => exp.date <= endDate)
     }
 
+    return filtered
+  }
+
+  const handleFilterChange = (newFilters: typeof filters) => {
+    setFilters(newFilters)
+    const filtered = applyFilters(newFilters, expenses)
     setFilteredExpenses(filtered)
   }
+
+  useEffect(() => {
+    const fetchExpenses = async () => {
+      if (!userId) return
+
+      try {
+        const response = await api.get("/expense", {
+          params: { userId },
+        })
+
+        const payload = response?.data?.data || response?.data?.expenses || response?.data || []
+        const expenseList = Array.isArray(payload) ? payload : []
+        const mappedExpenses: Expense[] = expenseList.map((exp: any) => ({
+          id: String(exp.id || exp._id || Date.now()),
+          description: exp.description || "",
+          amount: Number(exp.amount) || 0,
+          category: exp.category || "Other",
+          date: new Date(exp.date || exp.createdAt || new Date()),
+          paymentMethod: exp.paymentMethod || "Unknown",
+        }))
+
+        setExpenses(mappedExpenses)
+        setFilteredExpenses(applyFilters(filters, mappedExpenses))
+      } catch (error) {
+        console.error("Failed to fetch expenses:", error)
+        setExpenses([])
+        setFilteredExpenses([])
+      }
+    }
+
+    fetchExpenses()
+  }, [userId])
+
+  useEffect(() => {
+    setFilteredExpenses(applyFilters(filters, expenses))
+  }, [expenses, filters])
 
   const handleAddExpense = (newExpense: Omit<Expense, "id">) => {
     const expense: Expense = {
@@ -141,19 +112,19 @@ export default function DashboardPage() {
     }
     const updatedExpenses = [expense, ...expenses]
     setExpenses(updatedExpenses)
-    setFilteredExpenses(updatedExpenses)
+    setFilteredExpenses(applyFilters(filters, updatedExpenses))
   }
 
   const handleUpdateExpense = (updatedExpense: Expense) => {
     const updatedExpenses = expenses.map((exp) => (exp.id === updatedExpense.id ? updatedExpense : exp))
     setExpenses(updatedExpenses)
-    handleFilterChange(filters)
+    setFilteredExpenses(applyFilters(filters, updatedExpenses))
   }
 
   const handleDeleteExpense = (id: string) => {
     const updatedExpenses = expenses.filter((exp) => exp.id !== id)
     setExpenses(updatedExpenses)
-    handleFilterChange(filters)
+    setFilteredExpenses(applyFilters(filters, updatedExpenses))
   }
 
   const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0)
@@ -168,7 +139,7 @@ export default function DashboardPage() {
             <CardDescription>Based on current filters</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary">${totalExpenses.toFixed(2)}</div>
+            <div className="text-3xl font-bold text-primary">{user?.user?.currencySymbol}{'  '}{totalExpenses.toFixed(2)}</div>
             <p className="text-sm text-muted-foreground mt-2">{filteredExpenses.length} transactions</p>
           </CardContent>
         </Card>

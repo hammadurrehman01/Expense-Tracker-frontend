@@ -16,6 +16,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus } from "lucide-react"
+import api from "@/lib/axios"
+import { useSelector } from "react-redux"
+import toast from "react-hot-toast"
 
 interface CreateExpenseDialogProps {
   onAddExpense: (expense: {
@@ -31,7 +34,10 @@ const categories = ["Food", "Transportation", "Entertainment", "Health", "Educat
 const paymentMethods = ["Credit Card", "Debit Card", "Bank Transfer", "Cash"]
 
 export function CreateExpenseDialog({ onAddExpense }: CreateExpenseDialogProps) {
+  const user = useSelector((state: any) => state?.auth?.user)
+  const userId = user?.user?.id || user?.user?._id || user?.id || user?._id
   const [open, setOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     description: "",
     amount: "",
@@ -60,32 +66,62 @@ export function CreateExpenseDialog({ onAddExpense }: CreateExpenseDialogProps) 
     return Object.keys(newErrors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!validateForm()) {
       return
     }
 
-    onAddExpense({
-      description: formData.description,
-      amount: Number.parseFloat(formData.amount),
-      category: formData.category,
-      date: new Date(formData.date),
-      paymentMethod: formData.paymentMethod,
-    })
+    if (!userId) {
+      toast.error("User not found. Please sign in again.")
+      return
+    }
 
-    // Reset form
-    setFormData({
-      description: "",
-      amount: "",
-      category: "Food",
-      date: new Date().toISOString().split("T")[0],
-      paymentMethod: "Credit Card",
-    })
-    setErrors({})
-    setOpen(false)
+    setIsSubmitting(true)
+    try {
+      const payload = {
+        userId,
+        title: formData.description,
+        amount: Number.parseFloat(formData.amount),
+        category: formData.category,
+        date: formData.date,
+        note: formData.paymentMethod,
+      }
+
+      const response = await api.post("/expense", payload)
+      const createdExpense = response?.data?.data || response?.data?.expense || response?.data
+
+      onAddExpense({
+        description: createdExpense?.title || formData.description,
+        amount: Number(createdExpense?.amount ?? formData.amount),
+        category: createdExpense?.category || formData.category,
+        date: new Date(createdExpense?.date || formData.date),
+        paymentMethod: createdExpense?.note || formData.paymentMethod,
+      })
+
+      toast.success("Expense created successfully")
+
+      // Reset form
+      setFormData({
+        description: "",
+        amount: "",
+        category: "Food",
+        date: new Date().toISOString().split("T")[0],
+        paymentMethod: "Credit Card",
+      })
+      setErrors({})
+      setOpen(false)
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || "Failed to create expense"
+      toast.error(errorMessage)
+      console.error("Create expense error:", error)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
+
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -117,7 +153,7 @@ export function CreateExpenseDialog({ onAddExpense }: CreateExpenseDialogProps) 
 
           {/* Amount */}
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount ($)</Label>
+            <Label htmlFor="amount">Amount ({user?.user?.currencySymbol})</Label>
             <Input
               id="amount"
               type="number"
@@ -186,7 +222,9 @@ export function CreateExpenseDialog({ onAddExpense }: CreateExpenseDialogProps) 
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">Add Expense</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Adding..." : "Add Expense"}
+            </Button>
           </div>
         </form>
       </DialogContent>
