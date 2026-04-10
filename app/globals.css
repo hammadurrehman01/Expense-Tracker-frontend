@@ -43,7 +43,7 @@
 .dark {
   --background: oklch(0.08 0 0);
   --foreground: oklch(0.95 0 0);
-  --card: oklch(0.1 0 0);
+  --card: oklch(0.22 0 0);
   --card-foreground: oklch(0.95 0 0);
   --popover: oklch(0.08 0 0);
   --popover-foreground: oklch(0.95 0 0);
@@ -57,7 +57,8 @@
   --accent-foreground: oklch(0.95 0 0);
   --destructive: oklch(0.5 0.22 25);
   --destructive-foreground: oklch(0.95 0 0);
-  --border: oklch(0.15 0 0);
+  /* Slightly brighter than card so surfaces are visible */
+  --border: oklch(0.22 0 0);
   --input: oklch(0.15 0 0);
   --ring: oklch(0.6 0.15 160 / 0.3);
   --chart-1: oklch(0.6 0.15 160);

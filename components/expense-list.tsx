@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
 import { EditExpenseDialog } from "@/components/edit-expense-dialog"
 import { useSelector } from "react-redux"
 
@@ -20,6 +20,10 @@ interface ExpenseListProps {
   expenses: Expense[]
   onUpdateExpense?: (expense: Expense) => void
   onDeleteExpense?: (id: string) => void
+  currentPage?: number
+  totalPages?: number
+  totalExpenses?: number
+  onPageChange?: (page: number) => void
 }
 
 const categoryColors: Record<string, string> = {
@@ -32,7 +36,15 @@ const categoryColors: Record<string, string> = {
   Other: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
 }
 
-export function ExpenseList({ expenses, onUpdateExpense, onDeleteExpense }: ExpenseListProps) {
+export function ExpenseList({
+  expenses,
+  onUpdateExpense,
+  onDeleteExpense,
+  currentPage = 1,
+  totalPages = 1,
+  totalExpenses = 0,
+  onPageChange,
+}: ExpenseListProps) {
   const user = useSelector((state: any) => state?.auth?.user)
   
   if (expenses.length === 0) {
@@ -57,7 +69,7 @@ export function ExpenseList({ expenses, onUpdateExpense, onDeleteExpense }: Expe
           {expenses.map((expense) => (
             <div
               key={expense.id}
-              className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
+              className="flex items-center justify-between p-4 border border-border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-3">
@@ -87,6 +99,34 @@ export function ExpenseList({ expenses, onUpdateExpense, onDeleteExpense }: Expe
             </div>
           ))}
         </div>
+        {totalPages > 1 && onPageChange && (
+          <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages}
+              {totalExpenses > 0 ? ` (${totalExpenses} total)` : ""}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage <= 1}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Prev
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages}
+              >
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

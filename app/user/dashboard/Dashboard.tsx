@@ -17,12 +17,28 @@ interface Expense {
   paymentMethod: string
 }
 
+interface ExpensePagination {
+  page: number
+  limit: number
+  totalExpenses: number
+  totalPages: number
+}
+
 export default function DashboardPage() {
   const user = useSelector((state: any) => state?.auth?.user)
   const userId = user?.user?.id || user?.user?._id || user?.id || user?._id
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [totalTransactions, setTotalTransactions] = useState<number>(0)
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pagination, setPagination] = useState<ExpensePagination>({
+    page: 1,
+    limit: 10,
+    totalExpenses: 0,
+    totalPages: 1,
+  })
   const [isFiltering, setIsFiltering] = useState(false)
+  const [totalExpenseAmount, setTotalExpenseAmount] = useState(0)
   const filterRequestIdRef = useRef(0)
   const [filters, setFilters] = useState({
     searchTerm: "",
@@ -139,29 +155,73 @@ export default function DashboardPage() {
     fetchFilteredExpenses(newFilters)
   }
 
+  const fetchTotalExpense = async () => {
+    if (!userId) return
+
+    try {
+      const response = await api.get(`/expense/total/${userId}`, {
+        params: { userId },
+      })
+      const totalPayload =
+        response?.data?.expensesSummary?.[0]?.totalAmount ??
+        0
+
+      setTotalExpenseAmount(Number(totalPayload) || 0)
+    } catch (error) {
+      console.error("Failed to fetch total expenses:", error)
+      setTotalExpenseAmount(0)
+    }
+  }
+
   useEffect(() => {
     const fetchExpenses = async () => {
       if (!userId) return
 
       try {
         const response = await api.get("/expense", {
-          params: { userId },
+          params: { userId, page: currentPage },
         })
 
         const payload = response?.data?.data || response?.data?.expenses || response?.data || []
         const expenseList = Array.isArray(payload) ? payload : []
+        const paginationPayload = response?.data?.pagination
         const mappedExpenses = mapApiExpenses(expenseList)
 
         setExpenses(mappedExpenses)
+        if (paginationPayload) {
+          setPagination({
+            page: Number(paginationPayload.page) || currentPage,
+            limit: Number(paginationPayload.limit) || 10,
+            totalExpenses: Number(paginationPayload.totalExpenses) || 0,
+            totalPages: Number(paginationPayload.totalPages) || 1,
+          })
+        } else {
+          setPagination((prev) => ({
+            ...prev,
+            page: currentPage,
+            totalExpenses: mappedExpenses.length,
+            totalPages: 1,
+          }))
+        }
         fetchFilteredExpenses(filters, mappedExpenses)
       } catch (error) {
         console.error("Failed to fetch expenses:", error)
         setExpenses([])
         setFilteredExpenses([])
+        setPagination((prev) => ({
+          ...prev,
+          page: currentPage,
+          totalExpenses: 0,
+          totalPages: 1,
+        }))
       }
     }
 
     fetchExpenses()
+  }, [userId, currentPage])
+
+  useEffect(() => {
+    fetchTotalExpense()
   }, [userId])
 
   const handleAddExpense = (newExpense: Omit<Expense, "id">) => {
@@ -172,21 +232,22 @@ export default function DashboardPage() {
     const updatedExpenses = [expense, ...expenses]
     setExpenses(updatedExpenses)
     fetchFilteredExpenses(filters, updatedExpenses)
+    fetchTotalExpense()
   }
 
   const handleUpdateExpense = (updatedExpense: Expense) => {
     const updatedExpenses = expenses.map((exp) => (exp.id === updatedExpense.id ? updatedExpense : exp))
     setExpenses(updatedExpenses)
     fetchFilteredExpenses(filters, updatedExpenses)
+    fetchTotalExpense()
   }
 
   const handleDeleteExpense = (id: string) => {
     const updatedExpenses = expenses.filter((exp) => exp.id !== id)
     setExpenses(updatedExpenses)
     fetchFilteredExpenses(filters, updatedExpenses)
+    fetchTotalExpense()
   }
-
-  const totalExpenses = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0)
 
   return (
     <DashboardLayout onAddExpense={handleAddExpense}>
@@ -195,10 +256,10 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Total Expenses</CardTitle>
-            <CardDescription>Based on current filters</CardDescription>
+            <CardDescription>Calculated from all your saved expenses</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-primary">{user?.user?.currencySymbol}{'  '}{totalExpenses.toFixed(2)}</div>
+            <div className="text-3xl font-bold text-primary">{user?.user?.currencySymbol}{'  '}{totalExpenseAmount.toFixed(2)}</div>
             <p className="text-sm text-muted-foreground mt-2">
               {isFiltering ? "Filtering..." : `${filteredExpenses.length} transactions`}
             </p>
@@ -213,6 +274,10 @@ export default function DashboardPage() {
           expenses={filteredExpenses}
           onUpdateExpense={handleUpdateExpense}
           onDeleteExpense={handleDeleteExpense}
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          totalExpenses={pagination.totalExpenses}
+          onPageChange={setCurrentPage}
         />
       </div>
     </DashboardLayout>

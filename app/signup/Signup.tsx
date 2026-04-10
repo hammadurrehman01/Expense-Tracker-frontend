@@ -19,7 +19,6 @@ import { useDispatch } from "react-redux";
 import { ThemeToggle } from "../components/theme-toggle";
 import { signupSchema } from "@/schemas/signup";
 import { GoogleLogin } from "@react-oauth/google";
-  import { useGoogleLogin } from "@react-oauth/google";
 
 
 interface signUp {
@@ -62,10 +61,7 @@ export default function Signup() {
     }
   };
 
-
-
-
-const handleGoogleSignin = async (credentialResponse: any) => {
+const handleGoogleSignup = async (credentialResponse: any) => {
   const res = await axios.post(
     "http://localhost:8000/api/auth/google",
     {
@@ -113,7 +109,7 @@ const handleGoogleSignin = async (credentialResponse: any) => {
           <CardContent className="space-y-4">
        
 <GoogleLogin
-  onSuccess={handleGoogleSignin}
+  onSuccess={handleGoogleSignup}
   onError={() => console.log("Login Failed")}
 />
            
